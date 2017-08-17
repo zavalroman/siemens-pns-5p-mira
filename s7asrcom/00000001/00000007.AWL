@@ -1,0 +1,342 @@
+FUNCTION "PUMPS_TOGGLE" : VOID
+TITLE =
+AUTHOR : rooman
+VERSION : 0.1
+
+VAR_INPUT
+	p1_iAuto	: BOOL;
+	p1_confirm	: BOOL;
+	p2_confirm	: BOOL;
+	p3_confirm	: BOOL;
+	p1_priority	: INT;
+	p2_priority	: INT;
+	p3_priority	: INT;
+	delayPump	: S5TIME;
+	P_current	: REAL;      //??
+	P_setpoint	: REAL;
+END_VAR
+VAR_OUTPUT
+	mainMustStart : BOOL;
+	resMustStart : BOOL;
+	sResMustStart : BOOL;
+END_VAR
+VAR_TEMP
+	resConOut  : BOOL;
+	sResConOut : BOOL;
+	sResStarted : BOOL;
+	mainStopped : BOOL;
+	mainConfirm : BOOL;
+	resConfirm	: BOOL;
+	
+	mainMustStop : BOOL;
+	resMustStop : BOOL;
+	sResMustStop : BOOL;
+	
+END_VAR
+BEGIN
+NETWORK
+TITLE =
+//таймер для запуска первого резервного насоса
+	O(;
+		L #p1_priority;
+		L 1;
+		==I;
+		A #p1_confirm;
+	);
+	O(;
+		L #p2_priority;
+		L 1;
+		==I;
+		A #p2_confirm;
+	);
+	O(;
+		L #p3_priority;
+		L 1;
+		==I;
+		A #p3_confirm;
+	);
+	= #mainConfirm;
+    L #delayPump;
+	SD #main_started; 
+	
+NETWORK
+TITLE =
+//таймер для запуска второго резервного насоса	
+	O(;
+		L #p1_priority;
+		L 2;
+		==I;
+		A #p1_confirm;
+	);
+	O(;
+		L #p2_priority;
+		L 2;
+		==I;
+		A #p2_confirm;
+	);
+	O(;
+		L #p3_priority;
+		L 2;
+		==I;
+		A #p3_confirm;
+	);
+	= #resConfirm;
+	L #delayPump;
+	SD #reserve_started;
+	
+NETWORK
+TITLE =
+//второй резервный запущен
+	O(;
+		L #p2_priority;
+		L 3;
+		==I;
+		A #p2_confirm;
+	);
+	O(;
+		O(;
+			L #p3_priority;
+			L 3;
+			==I;
+			A #p3_confirm;
+			);
+		O(;
+			L #p3_priority;
+			L 2;
+			==I;
+			A #p3_confirm;
+			AN #p1_iAuto;
+			);
+	);
+	
+	= #sResStarted;
+	
+NETWORK
+TITLE =
+//таймер после останова второго резервного
+	O(;
+		L #p2_priority;
+		L 3;
+		==I;
+		AN #p2_confirm;
+	);
+	O(;
+		L #p3_priority;
+		L 3;
+		==I;
+		AN #p3_confirm;
+		);
+	O(;
+		L #p3_priority;
+		L 2;
+		==I;
+		AN #p1_iAuto;
+		);
+
+	
+	= #sResConOut;
+	
+    L #delayPump;
+	SD #second_res_stopped; 	
+
+NETWORK
+TITLE =
+//таймер после останова резервного
+	O(;
+		L #p1_priority;
+		L 2;
+		==I;
+		AN #p1_confirm;
+	);
+	O(;
+		L #p2_priority;
+		L 2;
+		==I;
+		AN #p2_confirm;
+	);
+	O(;
+		L #p3_priority;
+		L 2;
+		==I;
+		AN #p3_confirm;
+	);
+	
+	=#resConOut;
+	
+    L #delayPump;
+	SD #reserve_stopped; 
+	
+NETWORK
+TITLE =
+//основной остановлен
+	O(;
+		L #p1_priority;
+		L 1;
+		==I;
+		AN #p1_confirm;
+	);
+	O(;
+		L #p2_priority;
+		L 1;
+		==I;
+		AN #p2_confirm;
+	);
+	O(;
+		L #p3_priority;
+		L 1;
+		==I;
+		AN #p3_confirm;
+	);
+	
+	= #mainStopped;
+	
+NETWORK
+TITLE =
+//запрос останова основного НА
+	O(;
+		A #main_started;
+									//Гц?
+		A #reserve_stopped;									
+		A #highPressTimer;
+		);
+	O(;
+		A #mainStopped;
+		AN #mainMustStart;
+		);
+	O(;
+		O #mainFC1_20Hz;
+		O #mainFC2_20Hz;		
+		O #mainFC3_20Hz;		
+		);
+	
+	= #mainMustStop;
+
+NETWORK
+TITLE =
+//запрос останова резервного НА
+	O(;
+		A #reserve_started;
+									//Гц?
+		A #second_res_stopped;									
+		A(;
+			O(;
+				A(;
+					L #PROCESS_DATA.offHz2nd;
+					L #FCs.fc1_currFreq;
+					>R;
+					);
+				A(;
+					L #PROCESS_DATA.offHz2nd;
+					L #FCs.fc2_currFreq;
+					>R;
+					);
+				);	
+											//Гц?
+			O #highPressTimer;
+			);	
+		);
+	O(;
+		A #resConOut;
+		AN #resMustStart;
+		);
+	O #mainMustStop;
+	
+	= #resMustStop;
+	
+NETWORK
+TITLE =
+//запрос останова второго резервного НА
+	O(;
+		A #sResStarted;
+		A(;
+			O(;
+				A(;
+					L #PROCESS_DATA.offHz3th;
+					L #FCs.fc1_currFreq;
+					>R;
+					);
+				A(;
+					L #PROCESS_DATA.offHz3th;
+					L #FCs.fc2_currFreq;
+					>R;
+					);
+				);	
+											//Гц?
+			O #highPressTimer;
+			);
+		);
+	O(;																
+		A  #sResConOut;
+		AN #sResMustStart;
+		);
+	O #mainMustStop;
+	
+	= #sResMustStop;
+	
+NETWORK
+TITLE =
+//запрос запуска основного НА
+	O(;
+		L #P_setpoint;
+		L #P_current;
+		-R;							//проверка дельты?
+		L 0.100000e+000;
+		>R;
+		);
+	//O(;
+		O(;
+			A #mainConfirm;
+			AN #mainMustStop;
+			);
+		//AN(;
+			//O #mainFC1_20Hz;
+			//O #mainFC2_20Hz;		
+			//O #mainFC3_20Hz;
+			//);
+		//);
+	
+	= #mainMustStart;
+	
+NETWORK
+TITLE =
+//запрос запуска резервного НА
+	O(;
+		A #lowPressTimer;
+		//A(;
+		//		O(;
+		//			L 4.800000e+001;
+		//			L #FCs.fc1_currFreq;
+		//			<R;
+		//			);
+		//		O(;
+		//			L 4.800000e+001;
+		//			L #FCs.fc2_currFreq;
+		//			<R;
+		//			);
+		//		);							//проверка Гц?
+		A #main_started;
+		);
+	O(;
+		A #resConfirm;
+		AN #resMustStop;
+		);
+	
+	= #resMustStart;
+	
+NETWORK
+TITLE =
+//запрос запуска второго резервного НА
+	O(;
+		A #lowPressTimer;
+									//проверка Гц?
+		A #reserve_started;
+		);
+	O(;
+		A #sResStarted;
+		AN #sResMustStop;
+		);
+	
+	= #sResMustStart;
+
+END_FUNCTION
+	
