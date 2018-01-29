@@ -29,6 +29,8 @@ STRUCT
 	offHz3th	: REAL;
 	offHz2nd	: REAL;
 	
+	mode2018 : BOOL;
+	
 END_STRUCT;
 
 BEGIN
@@ -55,6 +57,8 @@ BEGIN
 	
 	offHz3th	:= 3.000000e+001;
 	offHz2nd	:= 4.000000e+001;
+	
+	mode2018 := FALSE;
 	
 END_DATA_BLOCK
 	

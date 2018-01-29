@@ -41,7 +41,8 @@ VAR_TEMP
 	p3_ficPrior		: INT;	
 	
 	p2_startKinshi	: BOOL;
-	p3_startKinshi	: BOOL;	
+	p3_startKinshi	: BOOL;
+	sResStartMode2018 : BOOL;
 END_VAR
 BEGIN
 (*---------------------------включение НА в авто внезапно--------------------*)
@@ -486,7 +487,7 @@ TITLE =
 			);
 		);
 	//FP #starterFPbegin;
-	S #sResStartMode;
+	S #sResStartMode2018;
 	
 NETWORK
 TITLE =
@@ -495,14 +496,14 @@ TITLE =
 	O #p3_oDirect;
 	//FP #starterFPend;
 		
-	R #sResStartMode;	
+	R #sResStartMode2018;	
 		      
 
 NETWORK
 TITLE =
 //расчет фиктивной уставки
 	L #PROCESS_DATA.P_setpoint;
-	A #sResStartMode;
+	A #sResStartMode2018;
 	JCN _307;
 	
 	L #P_current;
@@ -523,7 +524,7 @@ NETWORK
 TITLE =
 //проверка возможности включения второго резервного ( от пускателя )
 
-	A #sResStartMode;
+	A #sResStartMode2018;
 	A(;
 		L #fc1_curFreq;
 		L #PROCESS_DATA.alloDirFreq;
